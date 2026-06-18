@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HouseChat</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Popup Modals & Info Button Styling */
+    .info-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 5px;
+      margin-left: 5px;
+    }
+    .meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 5px;
+    }
+    .message.me .meta-row {
+      justify-content: flex-end;
+    }
+    .message:not(.me) .meta-row {
+      justify-content: flex-start;
+    }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: white;
+      color: black;
+      padding: 20px;
+      border-radius: 8px;
+      width: 250px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .modal-content h3 {
+      margin-top: 0;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 10px;
+    }
+    .status-list {
+      text-align: left;
+      margin: 15px 0;
+    }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 16px;
+    }
+    .status-item.seen { color: green; }
+    .status-item.unseen { color: red; }
+    .close-btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .close-btn:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+<div class="chat-container">
+
+  <div class="topbar">
+    <h1>HOUSECHAT</h1>
+    <div id="userDisplay"></div>
+    <button id="clearBtn">CLEAR MY VIEW</button>
+  </div>
+
+  <div id="messages"></div>
+
+  <div class="input-area">
+    <input id="messageInput" type="text" placeholder="Type message...">
+    <button id="sendBtn">SEND</button>
+  </div>
+
+</div>
+
+<!-- Seen Status Popup Modal -->
+<div id="statusModal" class="modal-overlay">
+  <div class="modal-content">
+    <h3>Seen Status</h3>
+    <div id="statusList" class="status-list"></div>
+    <button id="closeModalBtn" class="close-btn">Close</button>
+  </div>
+</div>
+
+<script type="module">
+
+import { db } from "./firebase.js";
+import {
+  ref,
+  push,
+  update,
+  onValue
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+const user = sessionStorage.getItem("housechatUser");
+
+if (!user) {
+  window.location.href = "index.html";
+}
+
+document.getElementById("userDisplay").textContent = "🟢 " + user;
+
+const messagesDiv = document.getElementById("messages");
+const allUsers = ["Gaurangaa", "Amma", "Appa", "Akka"];
+let clearedTime = Number(localStorage.getItem("clearedTime") || 0);
+
+// Global chat object mapping message IDs to their data payload
+let currentMessagesData = {};
+
+// Open status popup logic
+function openStatusModal(messageId) {
+  const msg = currentMessagesData[messageId];
+  if (!msg) return;
+
+  const seenBy = msg.seenBy || {};
+  const statusListDiv = document.getElementById("statusList");
+  statusListDiv.innerHTML = "";
+
+  allUsers.forEach(u => {
+    const hasSeen = seenBy[u] === true;
+    const item = document.createElement("div");
+    item.className = `status-item ${hasSeen ? 'seen' : 'unseen'}`;
+    item.innerHTML = `<span>${u}</span> <span>${hasSeen ? '✓' : '✗'}</span>`;
+    statusListDiv.appendChild(item);
+  });
+
+  document.getElementById("statusModal").style.display = "flex";
+}
+
+// Close status popup logic
+document.getElementById("closeModalBtn").addEventListener("click", () => {
+  document.getElementById("statusModal").style.display = "none";
+});
+
+// Render/Update domestic DOM message thread
+function renderMessages(messagesSnapshot) {
+  // Preserve scroll anchor if at bottom
+  const isAtBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop <= messagesDiv.clientHeight + 50;
+  
+  messagesDiv.innerHTML = "";
+  currentMessagesData = {};
+
+  messagesSnapshot.forEach((childSnapshot) => {
+    const msgId = childSnapshot.key;
+    const msg = childSnapshot.val();
+
+    // Cache message node details
+    currentMessagesData[msgId] = msg;
+
+    // Skip messages cleared via "Clear My View"
+    if (msg.timestamp < clearedTime) {
+      return;
+    }
+
+    // Automatically mark message as read if current user hasn't seen it yet
+    if (!msg.seenBy || !msg.seenBy[user]) {
+      update(ref(db, `messages/${msgId}/seenBy`), {
+        [user]: true
+      });
+    }
+
+    const div = document.createElement("div");
+    div.className = msg.sender === user ? "message me" : "message";
+
+    const time = new Date(msg.timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    div.innerHTML = `
+      <div class="sender">${msg.sender}</div>
+      <div class="text">${msg.text}</div>
+      <div class="meta-row">
+        <span class="time">${time}</span>
+        <button class="info-btn" data-id="${msgId}">ℹ️</button>
+      </div>
+    `;
+
+    // Attach contextual click directly to info element
+    div.querySelector(".info-btn").addEventListener("click", (e) => {
+      const id = e.target.getAttribute("data-id");
+      openStatusModal(id);
+    });
+
+    messagesDiv.appendChild(div);
+  });
+
+  if (isAtBottom) {
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+}
+
+// Listen to entire node tree for continuous sync structure
+onValue(ref(db, "messages"), (snapshot) => {
+  renderMessages(snapshot);
+});
+
+function sendMessage() {
+  const input = document.getElementById("messageInput");
+  const text = input.value.trim();
+
+  if (!text) return;
+
+  push(ref(db, "messages"), {
+    sender: user,
+    text: text,
+    timestamp: Date.now(),
+    seenBy: {
+      [user]: true // Automatic receipt confirmation for the author
+    }
+  });
+
+  input.value = "";
+}
+
+document.getElementById("sendBtn").addEventListener("click", sendMessage);
+
+document.getElementById("messageInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    sendMessage();
+  }
+});
+
+document.getElementById("clearBtn").addEventListener("click", () => {
+  localStorage.setItem("clearedTime", Date.now());
+  location.reload();
+});
+
+window.addEventListener("beforeunload", () => {
+  sessionStorage.removeItem("housechatUser");
+});
+
+</script>
+
+</body>
+</html>

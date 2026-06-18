@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HouseChat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="login-box">
+  <h1>HOUSECHAT</h1>
+
+  <h2>Who are you?</h2>
+
+  <button onclick="login('Gaurangaa')">Gaurangaa</button>
+  <button onclick="login('Amma')">Amma</button>
+  <button onclick="login('Appa')">Appa</button>
+  <button onclick="login('Akka')">Akka</button>
+</div>
+
+<script>
+function login(name){
+  sessionStorage.setItem("housechatUser", name);
+  window.location.href = "chat.html";
+}
+</script>
+
+</body>
+</html>
