@@ -113,7 +113,7 @@ import {
   push,
   update,
   onValue
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+} from "https://gstatic.com";
 
 const user = sessionStorage.getItem("housechatUser");
 
@@ -122,6 +122,46 @@ if (!user) {
 }
 
 document.getElementById("userDisplay").textContent = "🟢 " + user;
+
+// --- CONTROL CENTER INTERCEPTOR LISTENER ---
+let banner = document.getElementById("globalBroadcastBanner");
+if (!banner) {
+  banner = document.createElement("div");
+  banner.id = "globalBroadcastBanner";
+  banner.style = "background:#ffa502; color:black; font-weight:bold; text-align:center; padding:8px; display:none; font-size:14px; position:sticky; top:0; z-index:999; font-family:sans-serif;";
+  document.body.insertBefore(banner, document.body.firstChild);
+}
+
+onValue(ref(db, "systemSettings"), (snapshot) => {
+  const settings = snapshot.val() || {};
+
+  // Action 1: Emergency Shutdown Check
+  if (settings.isShutdown) {
+    document.body.innerHTML = `
+      <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:#121212; color:white; font-family:sans-serif; text-align:center; padding:20px;">
+        <h1 style="color:#ff4757; font-size:40px;">🛑 HouseChat Closed</h1>
+        <p style="font-size:18px; color:#ccc;">The creator has temporarily disabled the chat room for system maintenance.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Action 2: Kick Selected Profile Out
+  if (settings.kickedUsers && settings.kickedUsers[user]) {
+    sessionStorage.removeItem("housechatUser");
+    window.location.href = "index.html";
+    return;
+  }
+
+  // Action 3: Global Banner Updates
+  if (settings.announcement) {
+    banner.textContent = "📢 ALERT: " + settings.announcement;
+    banner.style.display = "block";
+  } else {
+    banner.style.display = "none";
+  }
+});
+// --- END CONTROL CENTER INTERCEPTOR ---
 
 const messagesDiv = document.getElementById("messages");
 const allUsers = ["Gaurangaa", "Amma", "Appa", "Akka"];
