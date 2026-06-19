@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HouseChat - Control Center</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background: #121212; color: #fff; font-family: sans-serif; padding: 20px; }
+    .admin-container { max-width: 500px; margin: 0 auto; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 10px; color: #ff4757; text-align: center; margin-top: 0; }
+    .control-card { background: #2f3542; padding: 15px; margin: 15px 0; border-radius: 8px; }
+    .control-card h3 { margin-top: 0; color: #ffa502; }
+    .switch-btn { background: #ff4757; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 15px; }
+    .switch-btn.active { background: #2ed573; }
+    .danger-btn { background: #ff6b81; border: none; color: white; padding: 8px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .danger-btn:hover { background: #ff4757; }
+    input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; background: #2f3542; border: 1px solid #57606f; color: white; border-radius: 4px; margin-bottom: 10px; }
+    select { width: 100%; padding: 8px; background: #2f3542; color: white; border: 1px solid #57606f; border-radius: 4px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+<div class="admin-container">
+  <h1>🔒 Creator Control Center</h1>
+
+  <!-- Shutdown Switch -->
+  <div class="control-card">
+    <h3>🚨 App Status</h3>
+    <button id="shutdownBtn" class="switch-btn active">APP IS LIVE</button>
+  </div>
+
+  <!-- Global Announcement System -->
+  <div class="control-card">
+    <h3>📢 Global Broadcast Banner</h3>
+    <input id="announcementInput" type="text" placeholder="Type banner message here...">
+    <button id="updateBannerBtn" class="switch-btn active" style="background:#1e90ff;">Update Banner</button>
+    <button id="clearBannerBtn" class="danger-btn" style="margin-top:5px; background:#747d8c;">Remove Banner</button>
+  </div>
+
+  <!-- Boot/Kick User Menu -->
+  <div class="control-card">
+    <h3>🥾 Remote Kick User</h3>
+    <select id="kickSelect">
+      <option value="Gaurangaa">Gaurangaa</option>
+      <option value="Amma">Amma</option>
+      <option value="Appa">Appa</option>
+      <option value="Akka">Akka</option>
+    </select>
+    <button id="kickBtn" class="danger-btn">Kick User Instantly</button>
+  </div>
+
+  <!-- Database Wipe -->
+  <div class="control-card" style="border: 1px solid #ff4757;">
+    <h3 style="color:#ff4757;">⚠️ Danger Zone</h3>
+    <button id="wipeBtn" class="danger-btn">Wipe Entire Chat History</button>
+  </div>
+</div>
+
+<script type="module">
+import { db } from "./firebase.js";
+import { ref, set, update, onValue } from "https://gstatic.com";
+
+const shutdownBtn = document.getElementById("shutdownBtn");
+
+// Sync controls dynamically with current state
+onValue(ref(db, "systemSettings"), (snapshot) => {
+  const settings = snapshot.val() || {};
+  
+  if (settings.isShutdown) {
+    shutdownBtn.textContent = "🛑 APP IS SHUTDOWN";
+    shutdownBtn.classList.remove("active");
+  } else {
+    shutdownBtn.textContent = "🟢 APP IS LIVE";
+    shutdownBtn.classList.add("active");
+  }
+  
+  if (settings.announcement) {
+    document.getElementById("announcementInput").value = settings.announcement;
+  } else {
+    document.getElementById("announcementInput").value = "";
+  }
+});
+
+// Toggle App Shutdown
+shutdownBtn.addEventListener("click", () => {
+  const isCurrentlyLive = shutdownBtn.classList.contains("active");
+  update(ref(db, "systemSettings"), { isShutdown: isCurrentlyLive });
+});
+
+// Update Broadcast Announcement
+document.getElementById("updateBannerBtn").addEventListener("click", () => {
+  const text = document.getElementById("announcementInput").value.trim();
+  update(ref(db, "systemSettings"), { announcement: text });
+});
+
+// Clear Broadcast Announcement
+document.getElementById("clearBannerBtn").addEventListener("click", () => {
+  update(ref(db, "systemSettings"), { announcement: "" });
+});
+
+// Remotely kick a targeted profile out
+document.getElementById("kickBtn").addEventListener("click", () => {
+  const selectedUser = document.getElementById("kickSelect").value;
+  if(confirm(`Are you sure you want to kick ${selectedUser}?`)) {
+    set(ref(db, `systemSettings/kickedUsers/${selectedUser}`), Date.now());
+  }
+});
+
+// Purge messages archive node
+document.getElementById("wipeBtn").addEventListener("click", () => {
+  if (confirm("🚨 WARNING: This will permanently delete ALL chat messages for everyone. Proceed?")) {
+    set(ref(db, "messages"), null);
+    alert("Chat database completely wiped!");
+  }
+});
+</script>
+
+</body>
+</html>
