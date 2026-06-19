@@ -79,6 +79,17 @@
 </head>
 <body>
 
+<!-- IMMEDIATE SESSION PROTECTION SECURITY BLOCK -->
+<script>
+  // This runs instantly before any external scripts load to prevent crashing on GitHub Pages paths
+  const currentUser = sessionStorage.getItem("housechatUser");
+  const pathBase = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) || '';
+  
+  if (!currentUser) {
+    window.location.href = pathBase + "/index.html";
+  }
+</script>
+
 <div class="chat-container">
 
   <div class="topbar">
@@ -107,7 +118,10 @@
 
 <script type="module">
 
-// Helper to determine the correct relative base directory pathway for GitHub Pages hosting roots
+// Safely display the online indicator now that user validation passed safely
+const user = sessionStorage.getItem("housechatUser");
+document.getElementById("userDisplay").textContent = "🟢 " + user;
+
 const baseDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) || '';
 
 import { db } from "./firebase.js";
@@ -117,14 +131,6 @@ import {
   update,
   onValue
 } from "https://gstatic.com";
-
-const user = sessionStorage.getItem("housechatUser");
-
-if (!user) {
-  window.location.href = baseDir + "/index.html";
-} else {
-  document.getElementById("userDisplay").textContent = "🟢 " + user;
-}
 
 // --- 🔒 CONTROL CENTER INTERCEPTOR LISTENER ---
 let banner = document.getElementById("globalBroadcastBanner");
