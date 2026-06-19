@@ -81,7 +81,6 @@
 
 <!-- IMMEDIATE SESSION PROTECTION SECURITY BLOCK -->
 <script>
-  // This runs instantly before any external scripts load to prevent crashing on GitHub Pages paths
   const currentUser = sessionStorage.getItem("housechatUser");
   const pathBase = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) || '';
   
@@ -118,13 +117,13 @@
 
 <script type="module">
 
-// Safely display the online indicator now that user validation passed safely
 const user = sessionStorage.getItem("housechatUser");
 document.getElementById("userDisplay").textContent = "🟢 " + user;
 
 const baseDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) || '';
 
 import { db } from "./firebase.js";
+// FIX: Added 'www.' to resolve the CORS blocking issue on GitHub Pages
 import {
   ref,
   push,
@@ -176,7 +175,6 @@ const messagesDiv = document.getElementById("messages");
 const allUsers = ["Gaurangaa", "Amma", "Appa", "Akka"];
 let clearedTime = Number(localStorage.getItem("clearedTime") || 0);
 
-// Global chat object mapping message IDs to their data payload
 let currentMessagesData = {};
 
 // Open status popup logic
